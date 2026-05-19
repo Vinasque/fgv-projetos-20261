@@ -1,0 +1,7 @@
+CREATE EXTERNAL TABLE IF NOT EXISTS {{GLUE_DATABASE}}.dim_countries (
+    country_key INT,
+    country STRING,
+    territory STRING
+)
+STORED AS PARQUET
+LOCATION '{{DIM_COUNTRIES_PATH}}'

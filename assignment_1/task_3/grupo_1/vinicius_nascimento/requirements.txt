@@ -1,0 +1,7 @@
+awswrangler
+boto3
+pandas
+seaborn
+matplotlib
+ipywidgets
+python-dotenv
