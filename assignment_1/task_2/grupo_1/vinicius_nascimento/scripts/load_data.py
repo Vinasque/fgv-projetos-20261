@@ -1,25 +1,38 @@
 import pymysql
-import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--host", required=True)
-parser.add_argument("--sql-file", default="mysqlsampledatabase.sql")
-args = parser.parse_args()
+def load_data(host, port, user, password, database, sql_file):
+    connection = pymysql.connect(
+        host=host,
+        port=int(port),
+        user=user,
+        password=password,
+        database=database,
+        autocommit=True,
+        client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
+    )
 
-conn = pymysql.connect(
-    host=args.host,
-    user="admin",
-    password="Admin1234!",
-    autocommit=True
-)
+    with connection.cursor() as cursor:
+        with open(sql_file, 'r') as f:
+            sql = f.read()
+            cursor.execute(sql)
+            print("Dados carregados com sucesso.")
 
-cursor = conn.cursor()
+    connection.close()
 
-with open(args.sql_file, "r") as f:
-    sql = f.read()
+if __name__ == "__main__":
+    # Read config
+    config = {}
+    with open('rds_config.txt', 'r') as f:
+        for line in f:
+            key, value = line.strip().split('=')
+            config[key] = value
 
-for statement in sql.split(";"):
-    if statement.strip():
-        cursor.execute(statement)
-
-print("Banco carregado com sucesso!")
+    sql_file = '../../data/mysqlsampledatabase.sql'  # Adjust path
+    load_data(
+        config['endpoint'],
+        config['port'],
+        config['username'],
+        config['password'],
+        config['database'],
+        sql_file
+    )

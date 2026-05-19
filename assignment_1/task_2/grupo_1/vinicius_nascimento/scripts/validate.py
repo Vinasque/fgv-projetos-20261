@@ -1,25 +1,37 @@
 import pymysql
-import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--host", required=True)
-args = parser.parse_args()
+def validate_database(host, port, user, password, database):
+    connection = pymysql.connect(
+        host=host,
+        port=int(port),
+        user=user,
+        password=password,
+        database=database
+    )
 
-conn = pymysql.connect(
-    host=args.host,
-    user="admin",
-    password="Admin1234!",
-    database="classicmodels"
-)
+    tables = ['customers', 'products', 'productlines', 'orders', 'orderdetails', 'payments', 'employees', 'offices']
 
-cursor = conn.cursor()
+    with connection.cursor() as cursor:
+        for table in tables:
+            cursor.execute(f"SELECT COUNT(*) FROM {table}")
+            count = cursor.fetchone()[0]
+            print(f"Tabela {table}: {count} linhas")
 
-cursor.execute("SHOW TABLES;")
-tables = cursor.fetchall()
+    connection.close()
+    print("Validação concluída.")
 
-print("Tabelas:")
-for t in tables:
-    print(t)
+if __name__ == "__main__":
+    # Read config
+    config = {}
+    with open('rds_config.txt', 'r') as f:
+        for line in f:
+            key, value = line.strip().split('=')
+            config[key] = value
 
-cursor.execute("SELECT COUNT(*) FROM customers;")
-print("Customers:", cursor.fetchone()[0])
+    validate_database(
+        config['endpoint'],
+        config['port'],
+        config['username'],
+        config['password'],
+        config['database']
+    )

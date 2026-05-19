@@ -1,59 +1,64 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
   region = var.region
 }
 
-# S3
+# Reference existing RDS instance
+data "aws_db_instance" "classicmodels_rds" {
+  db_instance_identifier = var.db_identifier
+}
+
+# Reference existing security group
+data "aws_security_group" "rds_sg" {
+  filter {
+    name   = "group-name"
+    values = ["rds-mysql-sg-*"]
+  }
+}
+
+# S3 Bucket for Data Lake
 resource "aws_s3_bucket" "data_lake" {
-  bucket = var.bucket_name
-}
+  bucket = var.s3_bucket_name
 
-# IAM Role
-resource "aws_iam_role" "glue_role" {
-  name = "glue-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "glue.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "glue_policy" {
-  role       = aws_iam_role.glue_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
-}
-
-# Glue Connection
-resource "aws_glue_connection" "mysql_conn" {
-  name = "mysql-connection"
-
-  connection_properties = {
-    JDBC_CONNECTION_URL = "jdbc:mysql://<RDS-ENDPOINT>:3306/classicmodels"
-    USERNAME            = "admin"
-    PASSWORD            = "Admin1234!"
-  }
-
-  physical_connection_requirements {
-    availability_zone      = "us-east-1a"
-    security_group_id_list = []
-    subnet_id              = ""
+  tags = {
+    Name = "ClassicModels Data Lake"
   }
 }
 
-# Glue Job
+# Glue Catalog Database
+resource "aws_glue_catalog_database" "classicmodels" {
+  name = var.glue_database_name
+}
+
+# Glue Job - Using existing lab role
 resource "aws_glue_job" "etl_job" {
-  name     = "classicmodels-etl"
-  role_arn = aws_iam_role.glue_role.arn
+  name     = var.glue_job_name
+  role_arn = "arn:aws:iam::353410101323:role/LabRole"  # Using existing lab role
 
   command {
-    script_location = "s3://${var.bucket_name}/scripts/etl_job.py"
+    script_location = "s3://${aws_s3_bucket.data_lake.bucket}/scripts/etl_transform.py"
     python_version  = "3"
   }
 
-  glue_version = "3.0"
+  default_arguments = {
+    "--job-bookmark-option"     = "job-bookmark-enable"
+    "--enable-metrics"          = ""
+    "--rds_endpoint"            = data.aws_db_instance.classicmodels_rds.endpoint
+    "--db_name"                 = var.db_name
+    "--db_user"                 = var.username
+    "--db_password"             = var.password
+    "--s3_output_path"          = "s3://${aws_s3_bucket.data_lake.bucket}/data/"
+    "--enable-glue-datacatalog" = ""
+  }
+
+  max_retries = 0
+  timeout     = 30
 }
