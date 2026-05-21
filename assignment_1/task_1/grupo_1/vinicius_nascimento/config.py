@@ -23,7 +23,7 @@ class CFG:
         sys.exit(1)
         
     DB_NAME = 'classicmodels'
-    SQL_PATH = 'assignment_1/task_1/data/mysqlsampledatabase.sql'
+    SQL_PATH = '../../data/mysqlsampledatabase.sql'
     
     @classmethod
     def get_db_host(cls):
